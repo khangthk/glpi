@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -34,6 +34,7 @@
  */
 
 use Glpi\Event;
+use Glpi\Toolbox\ArrayNormalizer;
 
 /**
  * Profile class
@@ -319,8 +320,9 @@ class Profile extends CommonDBTM
             if ((!isset($input["helpdesk_item_type"])) || (!is_array($input["helpdesk_item_type"]))) {
                 $input["helpdesk_item_type"] = [];
             }
-           // Linear_HIT: $input["helpdesk_item_type"] = array_keys($input["helpdesk_item_type"]
-            $input["helpdesk_item_type"] = exportArrayToDB($input["helpdesk_item_type"]);
+            $input["helpdesk_item_type"] = exportArrayToDB(
+                ArrayNormalizer::normalizeValues($input["helpdesk_item_type"], 'strval')
+            );
         }
 
         if (isset($input["_managed_domainrecordtypes"])) {
@@ -331,7 +333,9 @@ class Profile extends CommonDBTM
                //when all selected, keep only all
                 $input['managed_domainrecordtypes'] = [-1];
             }
-            $input["managed_domainrecordtypes"] = exportArrayToDB($input["managed_domainrecordtypes"]);
+            $input["managed_domainrecordtypes"] = exportArrayToDB(
+                ArrayNormalizer::normalizeValues($input["managed_domainrecordtypes"], 'intval')
+            );
         }
 
         if (isset($input['helpdesk_hardware']) && is_array($input['helpdesk_hardware'])) {
@@ -506,11 +510,15 @@ class Profile extends CommonDBTM
     {
 
         if (isset($input["helpdesk_item_type"])) {
-            $input["helpdesk_item_type"] = exportArrayToDB($input["helpdesk_item_type"]);
+            $input["helpdesk_item_type"] = exportArrayToDB(
+                ArrayNormalizer::normalizeValues($input["helpdesk_item_type"], 'strval')
+            );
         }
 
         if (isset($input["managed_domainrecordtypes"])) {
-            $input["managed_domainrecordtypes"] = exportArrayToDB($input["managed_domainrecordtypes"]);
+            $input["managed_domainrecordtypes"] = exportArrayToDB(
+                ArrayNormalizer::normalizeValues($input["managed_domainrecordtypes"], 'intval')
+            );
         }
 
         $this->profileRight = [];
@@ -1529,10 +1537,10 @@ class Profile extends CommonDBTM
            // Only root entity ones and recursive
             $options = [
                 'value'     => $this->fields[strtolower($itiltype) . "templates_id"],
-                'entity'    => 0
+                'condition' => ['entities_id' => 0]
             ];
             if (Session::isMultiEntitiesMode()) {
-                $options['condition'] = ['is_recursive' => 1];
+                $options['condition']['is_recursive'] = 1;
             }
            // Only add profile if on root entity
             if (!isset($_SESSION['glpiactiveentities'][0])) {

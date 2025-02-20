@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -732,6 +732,14 @@ class DbUtilsTest extends DbTestCase
             $it->getSql()
         );
 
+        // Entity value is empty array
+        $it->execute('glpi_entities', $instance->getEntitiesRestrictCriteria('glpi_entities', '', [], true));
+        $this->assertSame(0, $it->count());
+        $this->assertSame(
+            'SELECT * FROM `glpi_entities` WHERE false',
+            $it->getSql()
+        );
+
         //keep testing old method from db.function
         $this->assertSame(
             "WHERE ( `entities_id` IN ('3')  OR (`is_recursive`='1' AND `entities_id` IN (0, 1)) ) ",
@@ -752,6 +760,14 @@ class DbUtilsTest extends DbTestCase
         $it->execute('glpi_entities', getEntitiesRestrictCriteria('glpi_entities', '', 7, true));
         $this->assertSame(
             'SELECT * FROM `glpi_entities` WHERE (`glpi_entities`.`id` = \'7\')',
+            $it->getSql()
+        );
+
+        // Entity value is empty array
+        $it->execute('glpi_entities', getEntitiesRestrictCriteria('glpi_entities', '', [], true));
+        $this->assertSame(0, $it->count());
+        $this->assertSame(
+            'SELECT * FROM `glpi_entities` WHERE (false)',
             $it->getSql()
         );
     }
@@ -915,7 +931,7 @@ class DbUtilsTest extends DbTestCase
     }
 
     /**
-     * @tags cache
+     * @group cache
      */
     public function testGetAncestorsOfCached()
     {
@@ -1057,13 +1073,30 @@ class DbUtilsTest extends DbTestCase
         $expected = [$ent1 => $ent1, $new_id2 => $new_id2];
         $this->assertTrue($entity->delete(['id' => $new_id], true));
         if ($cache === true) {
+            $this->assertSame(null, $GLPI_CACHE->get($ckey_ent1)); // cache has been cleared
+        }
+        $sons = $instance->getSonsOf('glpi_entities', $ent1);
+        $this->assertSame($expected, $sons);
+        if ($cache === true) {
             $this->assertSame($expected, $GLPI_CACHE->get($ckey_ent1));
         }
 
         $expected = [$ent1 => $ent1];
         $this->assertTrue($entity->delete(['id' => $new_id2], true));
         if ($cache === true) {
+            $this->assertSame(null, $GLPI_CACHE->get($ckey_ent1)); // cache has been cleared
+        }
+        $sons = $instance->getSonsOf('glpi_entities', $ent1);
+        $this->assertSame($expected, $sons);
+        if ($cache === true) {
             $this->assertSame($expected, $GLPI_CACHE->get($ckey_ent1));
+        }
+
+        $expected = [$ent0 => $ent0, $ent1 => $ent1, $ent2 => $ent2];
+        $sons = $instance->getSonsOf('glpi_entities', $ent0);
+        $this->assertSame($expected, $sons);
+        if ($cache === true) {
+            $this->assertSame($expected, $GLPI_CACHE->get($ckey_ent0));
         }
     }
 
@@ -1090,7 +1123,7 @@ class DbUtilsTest extends DbTestCase
     }
 
     /**
-     * @tags cache
+     * @group cache
      */
     public function testGetSonsOfCached()
     {

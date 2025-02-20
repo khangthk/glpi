@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -1092,10 +1092,10 @@ class DBmysql
     /**
      * Instanciate a Simple DBIterator
      *
-     * @param string|string[] $tableorsql Table name, array of names or SQL query
-     * @param string|string[] $crit       String or array of filed/values, ex array("id"=>1), if empty => all rows
-     *                                    (default '')
-     * @param boolean         $debug      To log the request (default false)
+     * @param string|array|QueryUnion   $tableorsql Table name, array of names or SQL query
+     * @param string|array              $crit       String or array of filed/values, ex array("id"=>1), if empty => all rows
+     *                                              (default '')
+     * @param boolean                   $debug      To log the request (default false)
      *
      * @return DBmysqlIterator
      */
@@ -1439,7 +1439,7 @@ class DBmysql
                         str_replace(
                             '%clause',
                             $key,
-                            'Trying to use an unknonw clause (%clause) building update query!'
+                            'Trying to use an unknown clause (%clause) building update query!'
                         )
                     );
                 }
@@ -1871,7 +1871,7 @@ class DBmysql
        //setup timezone
         if ($this->use_timezones) {
             date_default_timezone_set($timezone);
-            $this->dbh->query("SET SESSION time_zone = '$timezone'");
+            $this->dbh->query(sprintf("SET SESSION time_zone = %s", $this->quote($timezone)));
             $_SESSION['glpi_currenttime'] = date("Y-m-d H:i:s");
         }
         return $this;

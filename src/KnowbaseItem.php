@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -1378,11 +1378,11 @@ class KnowbaseItem extends CommonDBVisible implements ExtraVisibilityCriteria
         echo "<input type='submit' value=\"" . _sx('button', 'Search') . "\" class='btn btn-primary'>";
         echo "</table>";
         if (
-            isset($options['item_itemtype'])
-            && isset($options['item_items_id'])
+            isset($options['item_itemtype'], $options['item_items_id'])
+            && is_a($options['item_itemtype'], CommonDBTM::class, true)
         ) {
             echo "<input type='hidden' name='item_itemtype' value='" . $options['item_itemtype'] . "'>";
-            echo "<input type='hidden' name='item_items_id' value='" . $options['item_items_id'] . "'>";
+            echo "<input type='hidden' name='item_items_id' value='" . (int)$options['item_items_id'] . "'>";
         }
         Html::closeForm();
     }

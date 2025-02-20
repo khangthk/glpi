@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -66,11 +66,15 @@ trait ParentStatus
                     'followup_frequency'          => $input['followup_frequency'] ?? 0,
                     'followups_before_resolution' => $input['followups_before_resolution'] ?? 0,
                     'previous_status'             => $parentitem->fields['status'],
+                    'last_bump_date'              => $input["last_bump_date"] ?? $_SESSION["glpi_currenttime"],
+                    'bump_count'                  => $input["bump_count"] ?? 0,
                 ]);
                 PendingReason_Item::createForItem($this, [
                     'pendingreasons_id'           => $input['pendingreasons_id'] ?? 0,
                     'followup_frequency'          => $input['followup_frequency'] ?? 0,
                     'followups_before_resolution' => $input['followups_before_resolution'] ?? 0,
+                    'last_bump_date'              => $input["last_bump_date"] ?? $_SESSION["glpi_currenttime"],
+                    'bump_count'                  => $input["bump_count"] ?? 0,
                 ]);
             }
         }
@@ -131,9 +135,12 @@ trait ParentStatus
             ) {
                //check if lifecycle allowed new status
                 if (
-                    Session::isCron()
-                    || Session::getCurrentInterface() == "helpdesk"
-                    || $parentitem::isAllowedStatus($parentitem->fields["status"], CommonITILObject::ASSIGNED)
+                    (
+                        Session::isCron()
+                        || Session::getCurrentInterface() == "helpdesk"
+                        || $parentitem::isAllowedStatus($parentitem->fields["status"], CommonITILObject::ASSIGNED)
+                    )
+                    && (!isset($input['_do_not_compute_status']) || !$input['_do_not_compute_status'])
                 ) {
                     $needupdateparent = true;
                     // If begin date is defined, the status must be planned if it exists, rather than assigned.
@@ -150,9 +157,12 @@ trait ParentStatus
             } else {
                //check if lifecycle allowed new status
                 if (
-                    Session::isCron()
-                    || Session::getCurrentInterface() == "helpdesk"
-                    || $parentitem::isAllowedStatus($parentitem->fields["status"], CommonITILObject::INCOMING)
+                    (
+                        Session::isCron()
+                        || Session::getCurrentInterface() == "helpdesk"
+                        || $parentitem::isAllowedStatus($parentitem->fields["status"], CommonITILObject::INCOMING)
+                    )
+                    && (!isset($input['_do_not_compute_status']) || !$input['_do_not_compute_status'])
                 ) {
                     $needupdateparent = true;
                     $update['status'] = CommonITILObject::INCOMING;

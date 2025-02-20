@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -1044,5 +1044,31 @@ SCSS
         foreach ($unwanted as $key) {
             $this->assertArrayNotHasKey($key, $values);
         }
+    }
+
+    public static function inputNameProvider(): iterable
+    {
+        yield [
+            'name'      => 'itemtype',
+            'expected'  => 'itemtype',
+        ];
+
+        yield [
+            'name'      => 'link_abc1[itemtype]',
+            'expected'  => 'link_abc1[itemtype]',
+        ];
+
+        yield [
+            'name'      => 'foo\'"$**-_23',
+            'expected'  => 'foo_23',
+        ];
+    }
+
+    /**
+     * @dataProvider inputNameProvider
+     */
+    public function testSanitizeInputName(string $name, string $expected): void
+    {
+        $this->assertEquals($expected, \Html::sanitizeInputName($name));
     }
 }

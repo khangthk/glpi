@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -1154,13 +1154,13 @@ class Item_SoftwareVersion extends CommonDBRelation
                         <input type='hidden' name='filters[active]' value='1'>
                     </td>
                     <td>
-                        <input type='text' class='form-control' name='filters[name]' value='" . ($filters['name'] ?? '') . "'>
+                        <input type='text' class='form-control' name='filters[name]' value='" . htmlspecialchars($filters['name'] ?? '', ENT_QUOTES) . "'>
                     </td>
                     <td>
-                        <input type='text' class='form-control' name='filters[state]' value='" . ($filters['state'] ?? '') . "'>
+                        <input type='text' class='form-control' name='filters[state]' value='" . htmlspecialchars($filters['state'] ?? '', ENT_QUOTES) . "'>
                     </td>
                     <td>
-                        <input type='text' class='form-control' name='filters[version]' value='" . ($filters['version'] ?? '') . "'>
+                        <input type='text' class='form-control' name='filters[version]' value='" . htmlspecialchars($filters['version'] ?? '', ENT_QUOTES) . "'>
                     </td>
                     <td></td>
                     <td>
@@ -1173,7 +1173,7 @@ class Item_SoftwareVersion extends CommonDBRelation
                         ) . "
                     </td>
                     <td>
-                        <input type='text' class='form-control' name='filters[arch]' value='" . ($filters['arch'] ?? '') . "'>
+                        <input type='text' class='form-control' name='filters[arch]' value='" . htmlspecialchars($filters['arch'] ?? '', ENT_QUOTES) . "'>
                     </td>
                     <td>" . Dropdown::showFromArray(
                             "filters[is_dynamic]",

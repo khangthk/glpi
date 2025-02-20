@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -366,7 +366,7 @@ class DatabaseInstance extends CommonDBTM
             'id'               => '5',
             'table'            => DatabaseInstance::getTable(),
             'field'            => 'items_id',
-            'name'             => _n('Associated item', 'Associated items', 2),
+            'name'             => _n('Item', 'Items', 1),
             'nosearch'         => true,
             'massiveaction'    => false,
             'forcegroupby'     => true,
@@ -382,6 +382,33 @@ class DatabaseInstance extends CommonDBTM
             'field'              => 'version',
             'name'               => _n('Version', 'Versions', 1),
             'datatype'           => 'text'
+        ];
+
+        $tab[] = [
+            'id'                 => '7',
+            'table'              => DatabaseInstance::getTable(),
+            'field'              => 'is_active',
+            'name'               => __('Is active'),
+            'massiveaction'      => false,
+            'datatype'           => 'bool'
+        ];
+
+        $tab[] = [
+            'id'                 => '253',
+            'table'              => DatabaseInstance::getTable(),
+            'field'              => 'path',
+            'name'               => __('Path'),
+            'datatype'           => 'text'
+        ];
+
+        $tab[] = [
+            'id'                 => '8',
+            'table'              => DatabaseInstance::getTable(),
+            'field'              => 'itemtype',
+            'name'               => __('Item type'),
+            'massiveaction'      => false,
+            'datatype'           => 'itemtypename',
+            'types'              => self::getTypes()
         ];
 
         $tab[] = [

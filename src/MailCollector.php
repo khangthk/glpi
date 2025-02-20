@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -152,8 +152,28 @@ class MailCollector extends CommonDBTM
         $this->fields['is_active']    = 1;
     }
 
-    public function prepareInput(array $input, $mode = 'add'): array
+    public function prepareInput(array $input, $mode = 'add')
     {
+        $missing_fields = [];
+        if (($mode === 'add' || array_key_exists('mail_server', $input)) && empty($input['mail_server'])) {
+            $missing_fields[] = __('Server');
+        }
+        if (($mode === 'add' || array_key_exists('server_type', $input)) && empty($input['server_type'])) {
+            $missing_fields[] = __('Connection options');
+        }
+        if (!empty($missing_fields)) {
+            Session::addMessageAfterRedirect(
+                htmlspecialchars(
+                    sprintf(
+                        __('Mandatory fields are not filled. Please correct: %s'),
+                        implode(', ', $missing_fields)
+                    )
+                ),
+                false,
+                ERROR
+            );
+            return false;
+        }
 
         if (isset($input["passwd"])) {
             if (empty($input["passwd"])) {
@@ -163,7 +183,7 @@ class MailCollector extends CommonDBTM
             }
         }
 
-        if (isset($input['mail_server']) && !empty($input['mail_server'])) {
+        if (isset($input['mail_server'])) {
             $input["host"] = Toolbox::constructMailServerConfig($input);
         }
 
@@ -173,6 +193,9 @@ class MailCollector extends CommonDBTM
     public function prepareInputForUpdate($input)
     {
         $input = $this->prepareInput($input, 'update');
+        if ($input === false) {
+            return false;
+        }
 
         if (isset($input["_blank_passwd"]) && $input["_blank_passwd"]) {
             $input['passwd'] = '';
@@ -185,6 +208,9 @@ class MailCollector extends CommonDBTM
     public function prepareInputForAdd($input)
     {
         $input = $this->prepareInput($input, 'add');
+        if ($input === false) {
+            return false;
+        }
         return $input;
     }
 
@@ -1344,7 +1370,7 @@ class MailCollector extends CommonDBTM
         $cleaned_count = 0;
         $itemstoclean = [];
         foreach ($DB->request(BlacklistedMailContent::getTable()) as $data) {
-            $toclean = trim($data['content']);
+            $toclean = trim(Sanitizer::unsanitize($data['content']));
             if (!empty($toclean)) {
                 $itemstoclean[] = str_replace(["\r\n", "\n", "\r"], $br_marker, $toclean);
             }
@@ -2463,16 +2489,25 @@ class MailCollector extends CommonDBTM
 
         $charset = $content_type->getParameter('charset');
         if ($charset !== null && strtoupper($charset) != 'UTF-8') {
+            /* mbstring functions do not handle the 'ks_c_5601-1987' &
+             * 'ks_c_5601-1989' charsets. However, these charsets are used, for
+             * example, by various versions of Outlook to send Korean characters.
+             * Use UHC (CP949) encoding instead. See, e.g.,
+             * http://lists.w3.org/Archives/Public/ietf-charsets/2001AprJun/0030.html */
+            if (in_array(strtolower($charset), ['ks_c_5601-1987', 'ks_c_5601-1989'])) {
+                $charset = 'UHC';
+            }
+
             if (in_array(strtoupper($charset), array_map('strtoupper', mb_list_encodings()))) {
                 $contents = mb_convert_encoding($contents, 'UTF-8', $charset);
             } else {
-               // Convert Windows charsets names
+                // Convert Windows charsets names
                 if (preg_match('/^WINDOWS-\d{4}$/i', $charset)) {
                     $charset = preg_replace('/^WINDOWS-(\d{4})$/i', 'CP$1', $charset);
                 }
 
-               // Try to convert using iconv with TRANSLIT, then with IGNORE.
-               // TRANSLIT may result in failure depending on system iconv implementation.
+                // Try to convert using iconv with TRANSLIT, then with IGNORE.
+                // TRANSLIT may result in failure depending on system iconv implementation.
                 if ($converted = @iconv($charset, 'UTF-8//TRANSLIT', $contents)) {
                     $contents = $converted;
                 } else if ($converted = iconv($charset, 'UTF-8//IGNORE', $contents)) {

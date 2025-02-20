@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -79,6 +79,14 @@ class RuleMailCollectorCollection extends RuleCollection
                     $input[$key] = $value;
                 }
             }
+            $input['_headers'] = implode(
+                "\n",
+                array_map(
+                    fn($k, $v) => is_array($v) ? "$k: " . implode(', ', $v) : "$k: $v",
+                    array_keys($params['headers']),
+                    $params['headers']
+                )
+            );
         }
 
        //Add all user's groups

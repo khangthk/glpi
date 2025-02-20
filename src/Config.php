@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -40,6 +40,7 @@ use Glpi\Dashboard\Grid;
 use Glpi\Exception\PasswordTooWeakException;
 use Glpi\Plugin\Hooks;
 use Glpi\System\RequirementsManager;
+use Glpi\Toolbox\ArrayNormalizer;
 use Glpi\Toolbox\Sanitizer;
 use PHPMailer\PHPMailer\PHPMailer;
 
@@ -256,22 +257,31 @@ class Config extends CommonDBTM
 
         if (isset($input['_update_devices_in_menu'])) {
             $input['devices_in_menu'] = exportArrayToDB(
-                (isset($input['devices_in_menu']) ? $input['devices_in_menu'] : [])
+                isset($input['devices_in_menu'])
+                    ? ArrayNormalizer::normalizeValues($input['devices_in_menu'], 'strval')
+                    : []
             );
         }
 
        // lock mechanism update
         if (isset($input['lock_use_lock_item'])) {
-            $input['lock_item_list'] = exportArrayToDB((isset($input['lock_item_list'])
-                                                      ? $input['lock_item_list'] : []));
+            $input['lock_item_list'] = exportArrayToDB(
+                isset($input['lock_item_list'])
+                    ? ArrayNormalizer::normalizeValues($input['lock_item_list'], 'strval')
+                    : []
+            );
         }
 
         if (isset($input[Impact::CONF_ENABLED])) {
-            $input[Impact::CONF_ENABLED] = exportArrayToDB($input[Impact::CONF_ENABLED]);
+            $input[Impact::CONF_ENABLED] = exportArrayToDB(
+                ArrayNormalizer::normalizeValues($input[Impact::CONF_ENABLED], 'strval')
+            );
         }
 
         if (isset($input['planning_work_days'])) {
-            $input['planning_work_days'] = exportArrayToDB($input['planning_work_days']);
+            $input['planning_work_days'] = exportArrayToDB(
+                ArrayNormalizer::normalizeValues($input['planning_work_days'], 'intval')
+            );
         }
 
        // Beware : with new management system, we must update each value
@@ -313,6 +323,20 @@ class Config extends CommonDBTM
                 );
                 unset($input['lock_lockprofile_id']);
             }
+        }
+
+        // Check the validity of `pdffont`
+        if (isset($input['pdffont']) && !in_array($input['pdffont'], array_keys(GLPIPDF::getFontList()), true)) {
+            Session::addMessageAfterRedirect(
+                sprintf(
+                    __('The following field has an incorrect value: "%s".'),
+                    __('PDF export font')
+                ),
+                false,
+                ERROR
+            );
+            //__('PDF export font')
+            unset($input['pdffont']);
         }
 
         // Prevent some input values to be saved in DB
@@ -3052,6 +3076,10 @@ HTML;
 
         if (isset($CFG_GLPI['planning_work_days'])) {
             $CFG_GLPI['planning_work_days'] = importArrayFromDB($CFG_GLPI['planning_work_days']);
+        }
+
+        if (isset($CFG_GLPI[Impact::CONF_ENABLED])) {
+            $CFG_GLPI[Impact::CONF_ENABLED] = importArrayFromDB($CFG_GLPI[Impact::CONF_ENABLED]);
         }
 
         return true;

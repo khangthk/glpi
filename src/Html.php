@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -1081,7 +1081,6 @@ HTML;
         }
     }
 
-
     /**
      * Include common HTML headers
      *
@@ -1103,9 +1102,8 @@ HTML;
     ) {
         /**
          * @var array $CFG_GLPI
-         * @var array $PLUGIN_HOOKS
          */
-        global $CFG_GLPI, $PLUGIN_HOOKS;
+        global $CFG_GLPI;
 
         // complete title with id if exist
         if ($add_id && isset($_GET['id']) && $_GET['id']) {
@@ -1124,13 +1122,16 @@ HTML;
         self::header_nocache();
 
         $theme = $_SESSION['glpipalette'] ?? 'auror';
+        $lang = $_SESSION['glpilanguage'] ?? Session::getPreferredLanguage();
 
         $tpl_vars = [
-            'lang'      => $CFG_GLPI["languages"][$_SESSION['glpilanguage']][3],
-            'title'     => $title,
-            'theme'     => $theme,
-            'css_files' => [],
-            'js_files'  => [],
+            'lang'               => $CFG_GLPI["languages"][$lang][3],
+            'title'              => $title,
+            'theme'              => $theme,
+            'is_anonymous_page'  => false,
+            'css_files'          => [],
+            'js_files'           => [],
+            'custom_header_tags' => [],
         ];
 
         $tpl_vars['css_files'][] = ['path' => 'public/lib/base.css'];
@@ -1170,13 +1171,15 @@ HTML;
                 }
             }
 
-            // include more js libs for dashboard case
-            $jslibs = array_merge($jslibs, [
-                'gridstack',
-                'charts',
-                'clipboard',
-                'sortable'
-            ]);
+            if (in_array('dashboard', $jslibs)) {
+                // include more js libs for dashboard case
+                $jslibs = array_merge($jslibs, [
+                    'gridstack',
+                    'charts',
+                    'clipboard',
+                    'sortable'
+                ]);
+            }
 
             if (in_array('planning', $jslibs)) {
                 Html::requireJs('planning');
@@ -1278,44 +1281,7 @@ HTML;
             $tpl_vars['high_contrast'] = true;
         }
 
-       // Add specific css for plugins
-        if (isset($PLUGIN_HOOKS[Hooks::ADD_CSS]) && count($PLUGIN_HOOKS[Hooks::ADD_CSS])) {
-            foreach ($PLUGIN_HOOKS[Hooks::ADD_CSS] as $plugin => $files) {
-                if (!Plugin::isPluginActive($plugin)) {
-                    continue;
-                }
-
-                $plugin_web_dir  = Plugin::getWebDir($plugin, false);
-                $plugin_version  = Plugin::getPluginFilesVersion($plugin);
-
-                if (!is_array($files)) {
-                    $files = [$files];
-                }
-
-                foreach ($files as $file) {
-                    $tpl_vars['css_files'][] = [
-                        'path' => "$plugin_web_dir/$file",
-                        'options' => [
-                            'version' => $plugin_version,
-                        ]
-                    ];
-                }
-            }
-        }
         $tpl_vars['css_files'][] = ['path' => 'css/palettes/' . $theme . '.scss'];
-
-        // Add specific meta tags for plugins
-        $custom_header_tags = [];
-        if (isset($PLUGIN_HOOKS[Hooks::ADD_HEADER_TAG]) && count($PLUGIN_HOOKS[Hooks::ADD_HEADER_TAG])) {
-            foreach ($PLUGIN_HOOKS[Hooks::ADD_HEADER_TAG] as $plugin => $plugin_header_tags) {
-                if (!Plugin::isPluginActive($plugin)) {
-                    continue;
-                }
-                array_push($custom_header_tags, ...$plugin_header_tags);
-            }
-        }
-        $tpl_vars['custom_header_tags'] = $custom_header_tags;
-
 
         $tpl_vars['js_files'][] = ['path' => 'public/lib/base.js'];
         $tpl_vars['js_files'][] = ['path' => 'js/webkit_fix.js'];
@@ -1323,6 +1289,7 @@ HTML;
 
         if ($_SESSION['glpi_use_mode'] === Session::DEBUG_MODE) {
             $tpl_vars['js_modules'][] = ['path' => 'js/modules/Debug/Debug.js'];
+            Html::requireJs('clipboard');
         }
 
        // Search
@@ -1767,9 +1734,8 @@ HTML;
         /**
          * @var array $CFG_GLPI
          * @var bool $FOOTER_LOADED
-         * @var array $PLUGIN_HOOKS
          */
-        global $CFG_GLPI, $FOOTER_LOADED, $PLUGIN_HOOKS;
+        global $CFG_GLPI, $FOOTER_LOADED;
 
        // If in modal : display popFooter
         if (isset($_REQUEST['_in_modal']) && $_REQUEST['_in_modal']) {
@@ -1800,6 +1766,7 @@ HTML;
 
         $tpl_vars = [
             'js_files' => [],
+            'js_modules' => [],
         ];
 
        // On demand scripts
@@ -1826,59 +1793,6 @@ HTML;
         }
 
         $tpl_vars['js_files'][] = ['path' => 'js/misc.js'];
-
-        if (isset($PLUGIN_HOOKS['add_javascript']) && count($PLUGIN_HOOKS['add_javascript'])) {
-            foreach ($PLUGIN_HOOKS["add_javascript"] as $plugin => $files) {
-                if (!Plugin::isPluginActive($plugin)) {
-                    continue;
-                }
-                $plugin_root_dir = Plugin::getPhpDir($plugin, true);
-                $plugin_web_dir  = Plugin::getWebDir($plugin, false);
-                $plugin_version  = Plugin::getPluginFilesVersion($plugin);
-
-                if (!is_array($files)) {
-                    $files = [$files];
-                }
-                foreach ($files as $file) {
-                    if (file_exists($plugin_root_dir . "/{$file}")) {
-                        $tpl_vars['js_files'][] = [
-                            'path' => $plugin_web_dir . "/{$file}",
-                            'options' => [
-                                'version' => $plugin_version,
-                            ]
-                        ];
-                    } else {
-                        trigger_error("{$file} file not found from plugin $plugin!", E_USER_WARNING);
-                    }
-                }
-            }
-        }
-        if (isset($PLUGIN_HOOKS['add_javascript_module']) && count($PLUGIN_HOOKS['add_javascript_module'])) {
-            foreach ($PLUGIN_HOOKS["add_javascript_module"] as $plugin => $files) {
-                if (!Plugin::isPluginActive($plugin)) {
-                    continue;
-                }
-                $plugin_root_dir = Plugin::getPhpDir($plugin, true);
-                $plugin_web_dir  = Plugin::getWebDir($plugin, false);
-                $plugin_version  = Plugin::getPluginFilesVersion($plugin);
-
-                if (!is_array($files)) {
-                    $files = [$files];
-                }
-                foreach ($files as $file) {
-                    if (file_exists($plugin_root_dir . "/{$file}")) {
-                        $tpl_vars['js_modules'][] = [
-                            'path' => $plugin_web_dir . "/{$file}",
-                            'options' => [
-                                'version' => $plugin_version,
-                            ]
-                        ];
-                    } else {
-                        trigger_error("{$file} file not found from plugin $plugin!", E_USER_WARNING);
-                    }
-                }
-            }
-        }
 
         TemplateRenderer::getInstance()->display('layout/parts/page_footer.html.twig', $tpl_vars);
 
@@ -2019,10 +1933,17 @@ HTML;
         $user = Session::getLoginUserID() !== false ? User::getById(Session::getLoginUserID()) : null;
 
         $platform = "";
-        if (!defined('TU_USER')) {
-            $parser = new UserAgentParser();
+        $parser = new UserAgentParser();
+        try {
             $ua = $parser->parse();
             $platform = $ua->platform();
+        } catch (InvalidArgumentException $e) {
+            // To avoid log overload, we suppress the InvalidArgumentException error.
+            // Some non-standard clients, such as bots or simplified HTTP services,
+            // don’t always send the User-Agent header,
+            // and privacy-focused browsers or extensions may also block it.
+            // Additionally, server configurations like proxies or firewalls
+            // may remove this header for security reasons.
         }
 
         $help_url_key = Session::getCurrentInterface() === 'central'
@@ -2030,7 +1951,7 @@ HTML;
             : 'helpdesk_doc_url';
         $help_url = !empty($CFG_GLPI[$help_url_key])
             ? $CFG_GLPI[$help_url_key]
-            : 'http://glpi-project.org/documentation';
+            : 'https://glpi-project.org/documentation';
 
         return [
             'is_debug_active'       => $_SESSION['glpi_use_mode'] == Session::DEBUG_MODE,
@@ -2689,15 +2610,15 @@ HTML;
             && ($max > 0)
             && ($max < ($p['num_displayed'] + 10))
         ) {
-            if (
-                !$p['ontop']
-                || (isset($p['forcecreate']) && $p['forcecreate'])
-            ) {
-                $out .= "<span class='b'>";
-                $out .= __('Selection too large, massive action disabled.') . "</span>";
-                if ($_SESSION['glpi_use_mode'] == Session::DEBUG_MODE) {
-                    $out .= __('To increase the limit: change max_input_vars or suhosin.post.max_vars in php configuration.');
-                }
+            $out .= "<span class='btn btn-sm border-danger text-danger me-1'>
+                        <i class='ti ti-corner-left-down mt-1' style='margin-left: -2px;'></i>"
+                        . __('Selection too large, massive action disabled.') .
+                    "</span>";
+            if ($_SESSION['glpi_use_mode'] == Session::DEBUG_MODE) {
+                $out .= Html::showToolTip(
+                    __('To increase the limit: change max_input_vars or suhosin.post.max_vars in php configuration.'),
+                    ['display' => false, 'awesome-class' => 'btn btn-sm border-danger text-danger me-1 fa-info']
+                );
             }
         } else {
            // Create Modal window on top
@@ -2848,6 +2769,7 @@ HTML;
          ? "mode: 'range',"
          : "";
 
+        $name = Html::cleanInputText($name);
         $output = <<<HTML
       <div class="input-group flex-grow-1 flatpickr d-flex align-items-center" id="showdate{$p['rand']}">
          <input type="text" name="{$name}" size="{$p['size']}"
@@ -2869,9 +2791,7 @@ HTML;
          ? "mode: 'multiple',"
          : "";
 
-        $value = is_array($p['value'])
-         ? json_encode($p['value'])
-         : "'{$p['value']}'";
+        $value = json_encode($p['value']);
 
         $locale = Locale::parseLocale($_SESSION['glpilanguage']);
         $js = <<<JS
@@ -3038,9 +2958,11 @@ JS;
          ? "<i class='input-group-text fas fa-times-circle fa-lg pointer' data-clear role='button' title='" . __s('Clear') . "'></i>"
          : "";
 
+        $name = Html::cleanInputText($name);
+        $value = Html::cleanInputText($p['value']);
         $output = <<<HTML
          <div class="input-group flex-grow-1 flatpickr" id="showdate{$p['rand']}">
-            <input type="text" name="{$name}" value="{$p['value']}"
+            <input type="text" name="{$name}" value="{$value}"
                    {$required} {$disabled} data-input class="form-control rounded-start ps-2">
             <i class="input-group-text far fa-calendar-alt fa-lg pointer" data-toggle="" role="button"></i>
             $clear
@@ -3049,11 +2971,11 @@ HTML;
 
         $date_format = Toolbox::getDateFormat('js') . " H:i:S";
 
-        $min_attr = !empty($p['min'])
-         ? "minDate: '{$p['min']}',"
+        $min_attr = !empty($p['mindate'])
+         ? "minDate: '{$p['mindate']}',"
          : "";
-        $max_attr = !empty($p['max'])
-         ? "maxDate: '{$p['max']}',"
+        $max_attr = !empty($p['maxdate'])
+         ? "maxDate: '{$p['maxdate']}',"
          : "";
 
         $locale = Locale::parseLocale($_SESSION['glpilanguage']);
@@ -7137,5 +7059,16 @@ CSS;
         }
 
         return "";
+    }
+
+    /**
+     * Sanitize a input name to prevent XSS.
+     *
+     * @param string $name
+     * @return string
+     */
+    public static function sanitizeInputName(string $name): string
+    {
+        return preg_replace('/[^a-z0-9_\[\]]/i', '', $name);
     }
 }

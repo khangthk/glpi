@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -203,6 +203,47 @@ class RuleAssetTest extends DbTestCase
         }
     }
 
+    public function testTriggerUpdateCommentRegex()
+    {
+        global $CFG_GLPI;
+
+        $this->login();
+        $this->setEntity('_test_root_entity', true);
+
+        $root_ent_id = getItemByTypeName('Entity', '_test_root_entity', true);
+
+        // prepare rule
+        $this->createRuleCommentRegex(\RuleAsset::ONUPDATE);
+        $this->createRuleLocation(\RuleAsset::ONUPDATE);
+
+        foreach ($CFG_GLPI['asset_types'] as $itemtype) {
+            $item     = new $itemtype();
+            $item_input = [
+                'name'        => "$itemtype 3",
+                'entities_id' => $root_ent_id,
+                'is_dynamic'  => 1,
+                'comment'     => 'mycomment'
+            ];
+            if ($itemtype == 'SoftwareLicense') {
+                $item_input['softwares_id'] = 1;
+            }
+            $items_id = $item->add($item_input);
+            $this->assertGreaterThan(0, (int)$items_id);
+
+            // Trigger update
+            $update = $item->update([
+                'id'    => $item->getID(),
+                'name'  => 'updated name',
+                '_auto' => 1,
+            ]);
+            $this->assertTrue($update);
+
+            $this->assertTrue((bool)$item->getFromDB($items_id));
+            $this->assertEquals($itemtype . 'test', (string)$item->getField('comment'));
+            $this->assertGreaterThan(0, (int)$item->getField('locations_id'));
+        }
+    }
+
     private function createRuleComment($condition)
     {
         $ruleasset  = new \RuleAsset();
@@ -237,6 +278,44 @@ class RuleAssetTest extends DbTestCase
             'action_type' => 'assign',
             'field'       => 'comment',
             'value'       => 'comment1'
+        ]);
+        $this->checkInput($ruleaction, $act_id, $act_input);
+    }
+
+    private function createRuleCommentRegex($condition)
+    {
+        $ruleasset  = new \RuleAsset();
+        $rulecrit   = new \RuleCriteria();
+        $ruleaction = new \RuleAction();
+
+        $ruleid = $ruleasset->add($ruleinput = [
+            'name'         => "rule comment regex",
+            'match'        => 'AND',
+            'is_active'    => 1,
+            'sub_type'     => 'RuleAsset',
+            'condition'    => $condition,
+            'is_recursive' => 1
+        ]);
+        $this->checkInput($ruleasset, $ruleid, $ruleinput);
+        $crit_id = $rulecrit->add($crit_input = [
+            'rules_id'  => $ruleid,
+            'criteria'  => '_itemtype',
+            'condition' => \Rule::REGEX_MATCH,
+            'pattern'   => "/(.*)/s"
+        ]);
+        $this->checkInput($rulecrit, $crit_id, $crit_input);
+        $crit_id = $rulecrit->add($crit_input = [
+            'rules_id'  => $ruleid,
+            'criteria'  => '_auto',
+            'condition' => \Rule::PATTERN_IS,
+            'pattern'   => 1
+        ]);
+        $this->checkInput($rulecrit, $crit_id, $crit_input);
+        $act_id = $ruleaction->add($act_input = [
+            'rules_id'    => $ruleid,
+            'action_type' => 'regex_result',
+            'field'       => 'comment',
+            'value'       => '#0test'
         ]);
         $this->checkInput($ruleaction, $act_id, $act_input);
     }
@@ -506,5 +585,61 @@ class RuleAssetTest extends DbTestCase
         $this->assertGreaterThan(0, $computers_id);
         $this->assertTrue($computer->getFromDB($computers_id));
         $this->assertEquals($group_id, $computer->getField('groups_id'));
+    }
+
+    public function testAddComputerWithSubEntityRule()
+    {
+        $this->login();
+
+        $sub_entity = $this->createItem(
+            \Entity::class,
+            [
+                'name'          => 'Subentity',
+                'entities_id'   => 0
+            ]
+        );
+
+        $ruleasset  = new \RuleAsset();
+        $rulecrit   = new \RuleCriteria();
+        $ruleaction = new \RuleAction();
+
+        $ruletid = $ruleasset->add($ruletinput = [
+            'name'         => 'Change computer name',
+            'entities_id'  => $sub_entity->getID(),
+            'match'        => 'AND',
+            'is_active'    => 1,
+            'sub_type'     => 'RuleAsset',
+            'condition'    => \RuleTicket::ONADD,
+            'is_recursive' => 1,
+        ]);
+        $this->checkInput($ruleasset, $ruletid, $ruletinput);
+
+        //create criteria to check if group requester already define
+        $crit_id = $rulecrit->add($crit_input = [
+            'rules_id'  => $ruletid,
+            'criteria'  => 'name',
+            'condition' => \Rule::PATTERN_IS,
+            'pattern'   => 'ComputerSubEntity',
+        ]);
+        $this->checkInput($rulecrit, $crit_id, $crit_input);
+
+        //create action to put default user group as group requester
+        $action_id = $ruleaction->add($action_input = [
+            'rules_id'    => $ruletid,
+            'action_type' => 'assign',
+            'field'       => 'comment',
+            'value'       => 'Comment changed',
+        ]);
+        $this->checkInput($ruleaction, $action_id, $action_input);
+
+        $computer = new \Computer();
+        $computers_id = (int)$computer->add([
+            'name'        => 'ComputerSubEntity',
+            'entities_id' => $sub_entity->getID()
+        ]);
+
+        $computer->getFromDB($computers_id);
+
+        $this->assertSame('Comment changed', $computer->fields['comment']);
     }
 }

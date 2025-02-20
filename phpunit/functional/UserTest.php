@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -39,6 +39,7 @@ use Glpi\Toolbox\Sanitizer;
 use Monolog\Logger;
 use Profile_User;
 use QuerySubQuery;
+use User;
 
 /* Test for inc/user.class.php */
 
@@ -415,6 +416,82 @@ class UserTest extends \DbTestCase
         $this->assertSame($expected, $user->prepareInputForAdd($input));
     }
 
+    public function testPrepareInputForAddPdfFont(): void
+    {
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
+
+        $this->login();
+
+        $user = new \User();
+
+        $default_values = [
+            'authtype'     => 1,
+            'auths_id'     => 0,
+            'is_active'    => 1,
+            'is_deleted'   => 0,
+            'entities_id'  => 0,
+            'profiles_id'  => 0,
+        ];
+
+        // Valid PDF font
+        $input = [
+            'name'    => __FUNCTION__,
+            'pdffont' => 'freesans',
+        ];
+        $expected = [
+            'name'    => __FUNCTION__,
+            'pdffont' => 'freesans',
+        ] + $default_values;
+        $this->assertSame($expected, $user->prepareInputForAdd($input));
+
+        // Invalid PDF font
+        $input = [
+            'name'    => __FUNCTION__,
+            'pdffont' => 'notavalidfont',
+        ];
+        $expected = [
+            'name'    => __FUNCTION__,
+            // pdffont is removed from the input
+        ] + $default_values;
+        $this->assertSame($expected, $user->prepareInputForAdd($input));
+        $this->hasSessionMessages(ERROR, [
+            'The following field has an incorrect value: "PDF export font".'
+        ]);
+    }
+
+    public function testPrepareInputForUpdatePdfFont(): void
+    {
+        /** @var array $CFG_GLPI */
+        global $CFG_GLPI;
+
+        $this->login();
+
+        $user = \getItemByTypeName(\User::class, 'glpi');
+
+        // Valid PDF font
+        $input = [
+            'id'      => $user->getID(),
+            'pdffont' => 'freesans',
+        ];
+        $expected = $input;
+        $this->assertSame($expected, $user->prepareInputForUpdate($input));
+
+        // Invalid PDF font
+        $input = [
+            'id'      => $user->getID(),
+            'pdffont' => 'notavalidfont',
+        ];
+        $expected = [
+            'id'      => $user->getID(),
+            // pdffont is removed from the input
+        ];
+        $this->assertSame($expected, $user->prepareInputForUpdate($input));
+        $this->hasSessionMessages(ERROR, [
+            'The following field has an incorrect value: "PDF export font".'
+        ]);
+    }
+
     public static function prepareInputForTimezoneUpdateProvider()
     {
         return [
@@ -554,6 +631,102 @@ class UserTest extends \DbTestCase
         }
 
         $this->assertSame($expected, $result);
+    }
+
+    public function testPrepareInputForUpdateSensitiveFields(): void
+    {
+        $users_passwords = [
+            TU_USER     => TU_PASS,
+            'glpi'      => 'glpi',
+            'tech'      => 'tech',
+            'normal'    => 'normal',
+            'post-only' => 'postonly',
+        ];
+
+        $users_matrix = [
+            TU_USER => [
+                TU_USER     => true,
+                'glpi'      => true,
+                'tech'      => true,
+                'normal'    => true,
+                'post-only' => true,
+            ],
+            'glpi' => [
+                TU_USER     => true,
+                'glpi'      => true,
+                'tech'      => true,
+                'normal'    => true,
+                'post-only' => true,
+            ],
+            'tech' => [
+                TU_USER     => false,
+                'glpi'      => false,
+                'tech'      => true,
+                'normal'    => false, // has some more rights somewhere
+                'post-only' => true,
+            ],
+            'normal' => [
+                TU_USER     => false,
+                'glpi'      => false,
+                'tech'      => false,
+                'normal'    => true,
+                'post-only' => true,
+            ],
+            'post-only' => [
+                TU_USER     => false,
+                'glpi'      => false,
+                'tech'      => false,
+                'normal'    => false,
+                'post-only' => true,
+            ]
+        ];
+
+        $inputs = [
+            'api_token'             => \bin2hex(\random_bytes(16)),
+            '_reset_api_token'      => true,
+            'cookie_token'          => \bin2hex(\random_bytes(16)),
+            'password_forget_token' => \bin2hex(\random_bytes(16)),
+            'personal_token'        => \bin2hex(\random_bytes(16)),
+            '_reset_personal_token' => true,
+            '_useremails'           => ['test1@example.com', 'test2@example.com'],
+            '_emails'               => ['test1@example.com', 'test2@example.com'],
+            'is_active'              => false,
+        ];
+
+        foreach ($users_matrix as $login => $targer_users_names) {
+            $this->login($login, $users_passwords[$login]);
+
+            foreach ($targer_users_names as $target_user_name => $can) {
+                $target_user = \getItemByTypeName(User::class, $target_user_name);
+
+                foreach ($inputs as $key => $value) {
+                    $output = $target_user->prepareInputForUpdate(['id' => $target_user->getID(), $key => $value]);
+                    if (is_array($output)) {
+                        $this->assertEquals($can, \array_key_exists($key, $output));
+                    } else {
+                        $this->assertFalse($can);
+                        $this->assertFalse($output);
+                        $this->hasSessionMessages(ERROR, [
+                            sprintf(
+                                __('You are not allowed to update the following fields: %s'),
+                                $key
+                            )
+                        ]);
+                    }
+                }
+            }
+        }
+
+        // Filtering of sensitive fields is not done if no session is active (cron case)
+        $this->logout();
+        foreach ([TU_USER, 'glpi', 'tech', 'normal', 'post-only'] as $target_user_name) {
+            $target_user = \getItemByTypeName(User::class, $target_user_name);
+
+            foreach ($inputs as $key => $value) {
+                $output = $target_user->prepareInputForUpdate(['id' => $target_user->getID(), $key => $value]);
+                $this->assertEquals(true, \array_key_exists($key, $output));
+            }
+        }
     }
 
     public function testPost_addItem()
@@ -1479,5 +1652,97 @@ class UserTest extends \DbTestCase
             json_decode($result_db_value, true),
             importArrayFromDB($user->fields['savedsearches_pinned'])
         );
+    }
+
+    public function testUnsetUndisclosedFields()
+    {
+        $users_passwords = [
+            TU_USER     => TU_PASS,
+            'glpi'      => 'glpi',
+            'tech'      => 'tech',
+            'normal'    => 'normal',
+            'post-only' => 'postonly',
+        ];
+
+        $users_matrix = [
+            TU_USER => [
+                TU_USER     => true,
+                'glpi'      => true,
+                'tech'      => true,
+                'normal'    => true,
+                'post-only' => true,
+            ],
+            'glpi' => [
+                TU_USER     => true,
+                'glpi'      => true,
+                'tech'      => true,
+                'normal'    => true,
+                'post-only' => true,
+            ],
+            'tech' => [
+                TU_USER     => false,
+                'glpi'      => false,
+                'tech'      => true,
+                'normal'    => false, // has some more rights somewhere
+                'post-only' => true,
+            ],
+            'normal' => [
+                TU_USER     => false,
+                'glpi'      => false,
+                'tech'      => false,
+                'normal'    => true,
+                'post-only' => false, // no update right
+            ],
+            'post-only' => [
+                TU_USER     => false,
+                'glpi'      => false,
+                'tech'      => false,
+                'normal'    => false,
+                'post-only' => true,
+            ]
+        ];
+
+        foreach ($users_matrix as $login => $targer_users_names) {
+            $this->login($login, $users_passwords[$login]);
+
+            foreach ($targer_users_names as $target_user_name => $disclose) {
+                $target_user = \getItemByTypeName(\User::class, $target_user_name);
+
+                $fields = $target_user->fields;
+                $this->assertArrayHasKey('password', $fields);
+                $this->assertArrayHasKey('personal_token', $fields);
+                $this->assertArrayHasKey('api_token', $fields);
+                $this->assertArrayHasKey('cookie_token', $fields);
+                $this->assertArrayHasKey('password_forget_token', $fields);
+                $this->assertArrayHasKey('password_forget_token_date', $fields);
+
+                \User::unsetUndisclosedFields($fields);
+
+                $this->assertEquals(false, \array_key_exists('password', $fields));
+                $this->assertEquals(false, \array_key_exists('personal_token', $fields));
+                $this->assertEquals(false, \array_key_exists('api_token', $fields));
+                $this->assertEquals(false, \array_key_exists('cookie_token', $fields));
+                $this->assertEquals($disclose, \array_key_exists('password_forget_token', $fields));
+                $this->assertEquals($disclose, \array_key_exists('password_forget_token_date', $fields));
+            }
+        }
+    }
+
+    public function testUnsetUndisclosedFieldsWithPartialFields()
+    {
+        $fields = [
+            //'id' is missing
+            'name'                       => 'test',
+            'password'                   => \bin2hex(\random_bytes(16)),
+            'api_token'                  => \bin2hex(\random_bytes(16)),
+            'cookie_token'               => \bin2hex(\random_bytes(16)),
+            'password_forget_token'      => \bin2hex(\random_bytes(16)),
+            'personal_token'             => \bin2hex(\random_bytes(16)),
+            'password_forget_token_date' => '2024-10-25 13:15:12',
+        ];
+
+        \User::unsetUndisclosedFields($fields);
+
+        $this->assertEquals(['name' => 'test'], $fields);
     }
 }

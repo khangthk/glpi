@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -115,7 +115,10 @@ if (isset($_POST['inquest_config']) && isset($_POST['entities_id'])) {
 
             echo "<tr class='tab_bg_1'><td>" . __('URL') . "</td>";
             echo "<td>";
-            echo Html::input('inquest_URL', ['value' => $entity->fields['inquest_URL']]);
+            echo Html::input('inquest_URL', [
+                'value' => $entity->fields['inquest_URL'],
+                'maxlength' => 255,
+            ]);
             echo "</td></tr>";
         }
 

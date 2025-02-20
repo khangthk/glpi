@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -86,6 +86,8 @@ class PrinterTest extends AbstractInventoryAsset
 
         $computer = getItemByTypeName('Computer', '_test_pc01');
         $asset = new \Glpi\Inventory\Asset\Printer($computer, $json->content->printers);
+        $conf = new \Glpi\Inventory\Conf();
+        $this->assertTrue($asset->checkConf($conf));
         $asset->setExtraData((array)$json->content);
         $result = $asset->prepare();
         $this->assertEquals(json_decode($expected), $result[0]);

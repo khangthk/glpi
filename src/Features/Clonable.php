@@ -7,7 +7,7 @@
  *
  * http://glpi-project.org
  *
- * @copyright 2015-2024 Teclib' and contributors.
+ * @copyright 2015-2025 Teclib' and contributors.
  * @copyright 2003-2014 by the INDEPNET Development Team.
  * @licence   https://www.gnu.org/licenses/gpl-3.0.html
  *
@@ -37,8 +37,8 @@ namespace Glpi\Features;
 
 use CommonDBConnexity;
 use CommonDBTM;
+use Glpi\Toolbox\Sanitizer;
 use Session;
-use Toolbox;
 
 /**
  * Clonable objects
@@ -230,10 +230,9 @@ trait Clonable
             return false;
         }
         $new_item = new static();
-        $input = Toolbox::addslashes_deep($this->fields);
-        foreach ($override_input as $key => $value) {
-            $input[$key] = Toolbox::addslashes_deep($value);
-        }
+
+        $input = array_merge($this->fields, $override_input);
+        $input = Sanitizer::sanitize($input);
         $input = $new_item->cleanCloneInput($input);
 
         // Do not compute a clone name if a new name is specified (Like creating from template)
